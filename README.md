@@ -4,7 +4,7 @@
 
 > Mobile-first Zero-Trust Edge AI Orchestration Platform
 
-EdgeClaw Mobile은 스마트폰에서 BLE/WiFi/QUIC 기반으로 주변 PC·IoT 장비를 탐색·연결·자동화하는 Edge AI 플랫폼입니다.
+EdgeClaw Mobile is an Edge AI platform that enables smartphones to discover, connect, and automate nearby PCs and IoT devices using BLE/WiFi/QUIC protocols.
 
 ## Features
 
