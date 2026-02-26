@@ -121,6 +121,8 @@ cd ../android && ./gradlew test && ./gradlew lint
 
 ## Commit Message Format
 
+**Language Policy**: All commit messages must be written in **English only** to facilitate international collaboration and ensure consistency across the project.
+
 We use [Conventional Commits](https://www.conventionalcommits.org/):
 
 ```
