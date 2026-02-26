@@ -1,124 +1,115 @@
-# EdgeClaw Mobile v1.0
+<p align="center">
+  <img src="https://img.shields.io/badge/EdgeClaw-Mobile-blue?style=for-the-badge&logo=android&logoColor=white" alt="EdgeClaw Mobile" />
+</p>
 
-[![CI](https://github.com/agentumi/edgeclaw/actions/workflows/ci.yml/badge.svg)](https://github.com/agentumi/edgeclaw/actions/workflows/ci.yml)
+<h1 align="center">EdgeClaw Mobile</h1>
 
-> Mobile-first Zero-Trust Edge AI Orchestration Platform
+<p align="center">
+  <strong>Zero-Trust Edge AI Orchestration — Mobile First</strong>
+</p>
 
-EdgeClaw Mobile is an Edge AI platform that enables smartphones to discover, connect, and automate nearby PCs and IoT devices using BLE/WiFi/QUIC protocols.
+<p align="center">
+  <a href="https://github.com/agentumi/edgeclaw_mobile/actions/workflows/ci.yml"><img src="https://github.com/agentumi/edgeclaw_mobile/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
+  <img src="https://img.shields.io/badge/version-0.1.0-blue" alt="Version" />
+  <img src="https://img.shields.io/badge/license-MIT%20%7C%20Apache--2.0-green" alt="License" />
+  <img src="https://img.shields.io/badge/rust-1.75%2B-orange?logo=rust" alt="Rust" />
+  <img src="https://img.shields.io/badge/kotlin-1.9%2B-purple?logo=kotlin" alt="Kotlin" />
+  <img src="https://img.shields.io/badge/API-34%2B-brightgreen?logo=android" alt="Android API" />
+  <img src="https://img.shields.io/badge/tests-76%20passed-success" alt="Tests" />
+</p>
 
-## Features
+<p align="center">
+  <a href="#-features">Features</a> •
+  <a href="#-architecture">Architecture</a> •
+  <a href="#-quick-start">Quick Start</a> •
+  <a href="#-security-model">Security</a> •
+  <a href="#-project-structure">Structure</a> •
+  <a href="#-testing">Testing</a> •
+  <a href="#-contributing">Contributing</a>
+</p>
 
-- **Zero-Trust Security** — Ed25519 identity + X25519 ECDH key exchange + AES-256-GCM encryption
-- **RBAC Policy Engine** — 4-tier roles (Viewer/Operator/Admin/Owner) with risk-level enforcement
-- **BLE Device Discovery** — Bluetooth Low Energy scanning and connection management
-- **ECNP v1.1 Protocol** — Binary framing codec for efficient edge communication
-- **Material 3 UI** — Modern Jetpack Compose UI with dynamic color support
-- **Cross-Platform Core** — Rust core library runs on Linux, macOS, Windows, and Android
+---
 
-## Architecture
+> **EdgeClaw Mobile** turns your smartphone into a zero-trust edge AI orchestrator.
+> Discover, authenticate, and automate nearby PCs & IoT devices over BLE/WiFi/QUIC —
+> all with military-grade encryption and fine-grained RBAC policies.
+
+## ✨ Features
+
+| Category | Feature | Details |
+|----------|---------|---------|
+| 🔐 **Security** | Zero-Trust Auth | Ed25519 device identity + X25519 ECDH key exchange |
+| 🛡️ **Encryption** | AES-256-GCM | End-to-end encryption with replay protection |
+| 👤 **Access Control** | 4-Tier RBAC | Viewer → Operator → Admin → Owner with risk levels |
+| 📡 **Discovery** | BLE Scanner | Automatic Bluetooth Low Energy device discovery |
+| 📦 **Protocol** | ECNP v1.1 | Binary framing codec for efficient edge communication |
+| 🎨 **UI** | Material 3 | Jetpack Compose with dynamic color & 5 screens |
+| 🦀 **Core** | Rust Library | Cross-platform core (Linux, macOS, Windows, Android) |
+| 🔄 **CI/CD** | GitHub Actions | Automated build, test, lint for Rust + Android |
+
+## 🏗️ Architecture
 
 ```
-┌──────────────────────────────────┐
-│        EdgeClaw Core (Rust)      │
-│──────────────────────────────────│
-│ IdentityManager  │ SessionManager│
-│ (Ed25519/X25519) │ (AES-256-GCM) │
-│──────────────────┼───────────────│
-│ PolicyEngine     │ PeerManager   │
-│ (RBAC, Risk 0-3) │ (Discovery)   │
-│──────────────────┼───────────────│
-│ ECNP v1.1 Codec  │ Protocol Msgs │
-│ (Binary Framing) │ (ECM/EAP/HB)  │
-└──────────┬───────────────────────┘
-           │ (Future: JNI/UniFFI)
-┌──────────▼───────────────────────┐
-│     Android App (Kotlin)         │
-│──────────────────────────────────│
-│ EdgeClawEngine  │ CryptoEngine   │
-│ (Orchestrator)  │ (JCA AES-GCM)  │
-│──────────────────┼───────────────│
-│ BLE Scanner     │ PolicyEngine   │
-│ (Discovery)     │ (Kotlin RBAC)   │
-│──────────────────┼───────────────│
-│ Material 3 UI   │ Navigation     │
-│ (5 Screens)     │ (Compose Nav)   │
-└──────────────────────────────────┘
+┌─────────────────────────────────────────────────────────┐
+│                    Android App Layer                     │
+│  ┌─────────────┐  ┌──────────────┐  ┌───────────────┐  │
+│  │  Material 3  │  │  BLE Scanner │  │  EdgeClaw     │  │
+│  │  Compose UI  │  │  (Discovery) │  │  Service      │  │
+│  │  (5 Screens) │  │              │  │  (Background) │  │
+│  └──────┬───────┘  └──────┬───────┘  └───────┬───────┘  │
+│         │                 │                   │          │
+│  ┌──────▼─────────────────▼───────────────────▼───────┐  │
+│  │              EdgeClawEngine (Kotlin)                │  │
+│  │         CryptoEngine  │  PolicyEngine              │  │
+│  └────────────────────────┬───────────────────────────┘  │
+├────────────────────────────┼─────────────────────────────┤
+│                    JNI / UniFFI Bridge                   │
+├────────────────────────────┼─────────────────────────────┤
+│                  EdgeClaw Core (Rust)                    │
+│  ┌──────────────┐  ┌──────▼───────┐  ┌───────────────┐  │
+│  │  Identity     │  │  Session     │  │  Policy       │  │
+│  │  (Ed25519/    │  │  (ECDH +     │  │  (RBAC 4-tier │  │
+│  │   X25519)     │  │   AES-GCM)   │  │   + Risk)     │  │
+│  ├──────────────┤  ├──────────────┤  ├───────────────┤  │
+│  │  ECNP v1.1   │  │  Protocol    │  │  Peer         │  │
+│  │  (Binary      │  │  (ECM/EAP/   │  │  (Discovery   │  │
+│  │   Codec)      │  │   Heartbeat) │  │   + Tracking) │  │
+│  └──────────────┘  └──────────────┘  └───────────────┘  │
+└─────────────────────────────────────────────────────────┘
 ```
 
-## Project Structure
-
-```
-edgeclaw_mobile/
-├── edgeclaw-core/              # Rust core library
-│   ├── src/
-│   │   ├── lib.rs              # Engine orchestrator (9 tests)
-│   │   ├── identity.rs         # Ed25519/X25519 identity (4 tests)
-│   │   ├── session.rs          # ECDH + AES-256-GCM sessions (5 tests)
-│   │   ├── protocol.rs         # ECM/EAP/Heartbeat messages (4 tests)
-│   │   ├── policy.rs           # RBAC policy engine (10 tests)
-│   │   ├── peer.rs             # Peer management (6 tests)
-│   │   ├── ecnp.rs             # ECNP v1.1 binary codec (8 tests)
-│   │   └── error.rs            # Error types (1 test)
-│   └── Cargo.toml
-├── android/                    # Android application
-│   ├── app/src/main/java/com/edgeclaw/mobile/
-│   │   ├── EdgeClawApp.kt      # Application class
-│   │   ├── core/
-│   │   │   ├── model/Models.kt # Shared data models
-│   │   │   ├── engine/EdgeClawEngine.kt
-│   │   │   ├── crypto/CryptoEngine.kt
-│   │   │   └── policy/PolicyEngine.kt
-│   │   ├── ble/BleScanner.kt   # BLE discovery
-│   │   ├── service/EdgeClawService.kt
-│   │   └── ui/
-│   │       ├── MainActivity.kt
-│   │       ├── theme/Theme.kt
-│   │       ├── navigation/Navigation.kt
-│   │       └── screens/        # 5 Compose screens
-│   ├── app/src/test/           # Unit tests (29 tests)
-│   ├── build.gradle.kts
-│   ├── gradlew / gradlew.bat
-│   └── settings.gradle.kts
-├── .github/workflows/ci.yml   # CI/CD pipeline
-└── README.md
-```
-
-## Quick Start
+## 🚀 Quick Start
 
 ### Prerequisites
 
-- **Rust**: 1.75+ (`rustup` recommended)
-- **Android Studio**: Hedgehog (2023.1.1) or newer
-- **JDK**: 17+
-- **Android SDK**: API 34, NDK 27+
+| Tool | Version | Install |
+|------|---------|---------|
+| Rust | 1.75+ | [rustup.rs](https://rustup.rs/) |
+| Android Studio | Hedgehog+ | [developer.android.com](https://developer.android.com/studio) |
+| JDK | 17+ | Included with Android Studio |
+| Android SDK | API 34 | SDK Manager |
+| Android NDK | 27+ | SDK Manager |
 
-### Build & Test Rust Core
+### Build & Run
 
 ```bash
-cd edgeclaw-core
+# 1. Clone
+git clone https://github.com/agentumi/edgeclaw_mobile.git
+cd edgeclaw_mobile
 
-# Run all 47 tests
+# 2. Build & test Rust core (47 tests)
+cd edgeclaw-core
+cargo build --release
 cargo test
 
-# Build release
-cargo build --release
-
-# Lint
-cargo clippy --all-targets -- -D warnings
-```
-
-### Build Android App
-
-```bash
-cd android
-
-# Debug build
+# 3. Build & test Android app (29 tests)
+cd ../android
 ./gradlew assembleDebug
-
-# Run unit tests
 ./gradlew test
 
-# Lint check
+# 4. Lint everything
+cargo clippy --all-targets -- -D warnings
+cargo fmt --check
 ./gradlew lint
 ```
 
@@ -135,18 +126,33 @@ cargo install cargo-ndk
 cargo ndk -t aarch64-linux-android build --release
 ```
 
-## Security Model
+## 🔐 Security Model
 
-| Role     | Max Risk | Capabilities |
-|----------|----------|-------------|
-| Viewer   | None (0) | status_query, heartbeat, peer_list |
-| Operator | Low (1)  | + file_read, log_view, network_scan |
-| Admin    | Medium (2)| + file_write, process_manage, config_edit |
-| Owner    | High (3) | + shell_exec, firmware_update, system_reboot, security_config |
+### RBAC Roles & Risk Levels
 
-## Protocol: ECNP v1.1
+| Role | Risk Level | Capabilities |
+|------|-----------|-------------|
+| **Viewer** | None (0) | `status_query`, `heartbeat`, `peer_list` |
+| **Operator** | Low (1) | + `file_read`, `log_view`, `network_scan` |
+| **Admin** | Medium (2) | + `file_write`, `process_manage`, `config_edit` |
+| **Owner** | High (3) | + `shell_exec`, `firmware_update`, `system_reboot`, `security_config` |
 
-Binary frame format:
+### Cryptography Stack
+
+```
+Device Identity ──── Ed25519 (signing + verification)
+        │
+Key Exchange ─────── X25519 ECDH (ephemeral)
+        │
+Key Derivation ───── HKDF-SHA256 (info: "ecnp-session-v1")
+        │
+Message Encrypt ──── AES-256-GCM (12-byte random nonce)
+        │
+Anti-Replay ──────── Per-device nonce tracking + timestamp ±30s
+```
+
+### Protocol: ECNP v1.1
+
 ```
 ┌─────────┬──────────┬────────────┬─────────────┐
 │ Version │ Type     │ Length     │ Payload     │
@@ -154,16 +160,133 @@ Binary frame format:
 └─────────┴──────────┴────────────┴─────────────┘
 ```
 
-Message types: Handshake (0x01), Data (0x02), Control (0x03), Heartbeat (0x04), Error (0x05), Auth (0x06)
+| Type | Code | Direction |
+|------|------|-----------|
+| Handshake | `0x01` | Bidirectional |
+| Data | `0x02` | Bidirectional |
+| Control | `0x03` | Bidirectional |
+| Heartbeat | `0x04` | Bidirectional |
+| Error | `0x05` | Bidirectional |
+| Auth | `0x06` | Device → Gateway |
 
-## CI/CD
+## 📁 Project Structure
 
-GitHub Actions pipeline:
-1. **Rust Core** — fmt check, clippy, build, test (Linux/macOS/Windows)
-2. **Android Cross-Compile** — cargo-ndk for aarch64, armv7, x86_64
-3. **Android App** — Gradle build, lint, unit tests, APK artifact
-4. **Release** — Signed release APK on main branch push
+```
+edgeclaw_mobile/
+├── edgeclaw-core/                    # Rust core library (47 tests)
+│   ├── src/
+│   │   ├── lib.rs                    # Engine orchestrator (9 tests)
+│   │   ├── identity.rs               # Ed25519/X25519 identity (4 tests)
+│   │   ├── session.rs                # ECDH + AES-256-GCM (5 tests)
+│   │   ├── protocol.rs               # ECM/EAP/Heartbeat (4 tests)
+│   │   ├── policy.rs                 # RBAC policy engine (10 tests)
+│   │   ├── peer.rs                   # Peer management (6 tests)
+│   │   ├── ecnp.rs                   # ECNP v1.1 codec (8 tests)
+│   │   └── error.rs                  # Error types (1 test)
+│   └── Cargo.toml
+│
+├── android/                          # Android application (29 tests)
+│   ├── app/src/
+│   │   ├── main/java/com/edgeclaw/mobile/
+│   │   │   ├── EdgeClawApp.kt        # Application entry point
+│   │   │   ├── core/
+│   │   │   │   ├── model/Models.kt   # Shared data models
+│   │   │   │   ├── engine/EdgeClawEngine.kt
+│   │   │   │   ├── crypto/CryptoEngine.kt
+│   │   │   │   └── policy/PolicyEngine.kt
+│   │   │   ├── ble/BleScanner.kt     # BLE discovery
+│   │   │   ├── service/EdgeClawService.kt
+│   │   │   └── ui/
+│   │   │       ├── MainActivity.kt
+│   │   │       ├── theme/Theme.kt
+│   │   │       ├── navigation/Navigation.kt
+│   │   │       └── screens/          # 5 Compose screens
+│   │   └── test/                     # Unit tests
+│   ├── build.gradle.kts
+│   └── settings.gradle.kts
+│
+├── .github/workflows/ci.yml          # CI/CD pipeline
+├── AGENTS.md                         # AI agent guidelines
+├── CLAUDE.md                         # Claude AI guidelines
+├── CONTRIBUTING.md                   # Contribution guide
+├── SECURITY.md                       # Security policy
+├── CHANGELOG.md                      # Release history
+├── CODE_OF_CONDUCT.md                # Community standards
+├── LICENSE-MIT                       # MIT License
+├── LICENSE-APACHE                    # Apache 2.0 License
+└── NOTICE                            # Third-party attributions
+```
 
-## License
+## 🧪 Testing
 
-MIT OR Apache-2.0
+### Test Summary
+
+| Component | Tests | Command |
+|-----------|-------|---------|
+| **Rust Core** | 47 | `cargo test` |
+| **Android App** | 29 | `./gradlew test` |
+| **Total** | **76** | — |
+
+### Rust Core — Module Tests
+
+```bash
+cargo test identity::tests     # Ed25519/X25519 keypairs (4 tests)
+cargo test session::tests      # ECDH + AES-256-GCM (5 tests)
+cargo test policy::tests       # RBAC authorization (10 tests)
+cargo test protocol::tests     # Message encode/decode (4 tests)
+cargo test peer::tests         # Peer discovery (6 tests)
+cargo test ecnp::tests         # Binary codec (8 tests)
+cargo test lib::tests          # Engine integration (9 tests)
+cargo test error::tests        # Error handling (1 test)
+```
+
+### Android — Unit Tests
+
+```bash
+./gradlew test                                    # All 29 tests
+./gradlew test --tests com.edgeclaw.mobile.core.* # Core tests only
+./gradlew test --info                             # Verbose output
+```
+
+### Lint & Format
+
+```bash
+# Rust
+cargo clippy --all-targets -- -D warnings   # Zero warnings policy
+cargo fmt --check                            # Format check
+
+# Android
+./gradlew lint                               # Android lint
+```
+
+## 🤝 CI/CD Pipeline
+
+| Stage | Platform | Actions |
+|-------|----------|---------|
+| **Rust Core** | Linux / macOS / Windows | fmt, clippy, build, test |
+| **Cross-Compile** | Android | cargo-ndk (aarch64, armv7, x86_64) |
+| **Android App** | Ubuntu | Gradle build, lint, unit tests |
+| **Release** | Ubuntu | Signed APK artifact on `main` push |
+
+## 🤝 Contributing
+
+We welcome contributions! Please read:
+
+- [CONTRIBUTING.md](CONTRIBUTING.md) — Development workflow & PR process
+- [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) — Community standards
+- [SECURITY.md](SECURITY.md) — Vulnerability reporting
+
+## 📜 License
+
+Dual-licensed under **MIT** or **Apache-2.0** at your option.
+
+- [LICENSE-MIT](LICENSE-MIT)
+- [LICENSE-APACHE](LICENSE-APACHE)
+
+Copyright (c) 2025-2026 EdgeClaw Contributors.
+
+---
+
+<p align="center">
+  <sub>Built with 🦀 Rust + 💜 Kotlin — Part of the <a href="https://github.com/agentumi">EdgeClaw</a> ecosystem</sub>
+</p>
