@@ -172,7 +172,7 @@ fun SettingsScreen(
                         subtitle = "Rust + Kotlin"
                     )
                     SettingRow(
-                        icon = Icons.Default.GitHub,
+                        icon = Icons.Default.Link,
                         title = "Repository",
                         subtitle = "github.com/agentumi/edgeclaw"
                     )
