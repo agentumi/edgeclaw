@@ -11,6 +11,7 @@ pub mod peer;
 pub mod policy;
 pub mod protocol;
 pub mod session;
+pub mod sync;
 
 use std::sync::Mutex;
 
@@ -21,6 +22,7 @@ use peer::{PeerInfo, PeerManager};
 use policy::{PolicyDecision, PolicyEngine};
 use protocol::MessageType;
 use session::{SessionInfo, SessionManager};
+use sync::{SyncClient, SyncClientConfig, SyncMessage};
 
 // ─── Engine config ───
 
@@ -62,6 +64,7 @@ pub struct EdgeClawEngine {
     session_manager: Mutex<SessionManager>,
     peer_manager: Mutex<PeerManager>,
     policy_engine: PolicyEngine,
+    sync_client: Mutex<Option<SyncClient>>,
 }
 
 impl EdgeClawEngine {
@@ -83,6 +86,7 @@ impl EdgeClawEngine {
             session_manager: Mutex::new(SessionManager::new()),
             peer_manager: Mutex::new(PeerManager::new()),
             policy_engine: PolicyEngine::new(),
+            sync_client: Mutex::new(None),
         })
     }
 
@@ -263,6 +267,87 @@ impl EdgeClawEngine {
         EcnpCodec::decode(data)
     }
 
+    // ─── Sync ───
+
+    /// Initialize the sync client for Desktop-Mobile synchronization
+    pub fn init_sync(&self, config: SyncClientConfig) -> Result<(), EdgeClawError> {
+        let client = SyncClient::new(config);
+        let mut guard = self
+            .sync_client
+            .lock()
+            .map_err(|_| EdgeClawError::InternalError)?;
+        *guard = Some(client);
+        tracing::info!("Sync client initialized");
+        Ok(())
+    }
+
+    /// Connect sync client to desktop agent
+    pub async fn sync_connect(&self) -> Result<(), EdgeClawError> {
+        // Extract what we need from the lock, then drop it before await
+        let client_state = {
+            let guard = self
+                .sync_client
+                .lock()
+                .map_err(|_| EdgeClawError::InternalError)?;
+            guard.as_ref().map(|c| c.desktop_address().to_string())
+        };
+        let addr = client_state.ok_or(EdgeClawError::InvalidParameter)?;
+
+        // Create a temporary SyncClient for the connection attempt
+        // (the actual connect only needs the config)
+        let temp_config = SyncClientConfig {
+            desktop_address: addr,
+            ..Default::default()
+        };
+        let temp_client = SyncClient::new(temp_config);
+        temp_client.connect().await
+    }
+
+    /// Send a remote execution request to the desktop agent
+    pub fn sync_remote_exec(
+        &self,
+        command: &str,
+        args: Vec<String>,
+    ) -> Result<Vec<u8>, EdgeClawError> {
+        let guard = self
+            .sync_client
+            .lock()
+            .map_err(|_| EdgeClawError::InternalError)?;
+        let client = guard.as_ref().ok_or(EdgeClawError::InvalidParameter)?;
+        client.create_remote_exec(command, args)
+    }
+
+    /// Process an incoming sync frame from the desktop agent
+    pub fn sync_process_incoming(&self, frame: &[u8]) -> Result<SyncMessage, EdgeClawError> {
+        let guard = self
+            .sync_client
+            .lock()
+            .map_err(|_| EdgeClawError::InternalError)?;
+        let client = guard.as_ref().ok_or(EdgeClawError::InvalidParameter)?;
+        client.process_incoming(frame)
+    }
+
+    /// Shutdown the sync client
+    pub fn sync_shutdown(&self) -> Result<(), EdgeClawError> {
+        let guard = self
+            .sync_client
+            .lock()
+            .map_err(|_| EdgeClawError::InternalError)?;
+        if let Some(client) = guard.as_ref() {
+            client.shutdown();
+        }
+        Ok(())
+    }
+
+    /// Check if sync client is connected
+    pub fn sync_is_connected(&self) -> bool {
+        self.sync_client
+            .lock()
+            .ok()
+            .and_then(|g| g.as_ref().map(|c| c.is_connected()))
+            .unwrap_or(false)
+    }
+
     // ─── Logging ───
 
     /// Log an event through the tracing subsystem
@@ -418,5 +503,73 @@ mod tests {
         let config = EngineConfig::default();
         assert_eq!(config.listen_port, 8443);
         assert!(!config.quic_enabled);
+    }
+
+    #[test]
+    fn test_sync_init() {
+        let engine = create_engine(test_config()).unwrap();
+        let sync_config = SyncClientConfig::default();
+        engine.init_sync(sync_config).unwrap();
+        assert!(!engine.sync_is_connected());
+    }
+
+    #[test]
+    fn test_sync_remote_exec_without_init() {
+        let engine = create_engine(test_config()).unwrap();
+        // Without init_sync, should fail
+        assert!(engine.sync_remote_exec("ls", vec![]).is_err());
+    }
+
+    #[test]
+    fn test_sync_remote_exec_with_init() {
+        let engine = create_engine(test_config()).unwrap();
+        engine.init_sync(SyncClientConfig::default()).unwrap();
+
+        let frame = engine
+            .sync_remote_exec("hostname", vec!["-f".into()])
+            .unwrap();
+        assert!(!frame.is_empty());
+
+        // Should be decodable as a SyncMessage
+        let (_code, msg) = SyncMessage::decode_ecnp(&frame).unwrap();
+        match msg {
+            SyncMessage::RemoteExec { command, args } => {
+                assert_eq!(command, "hostname");
+                assert_eq!(args, vec!["-f"]);
+            }
+            _ => panic!("Expected RemoteExec"),
+        }
+    }
+
+    #[test]
+    fn test_sync_process_incoming() {
+        let engine = create_engine(test_config()).unwrap();
+        engine.init_sync(SyncClientConfig::default()).unwrap();
+
+        let status = SyncMessage::StatusPush {
+            cpu_usage: 30.0,
+            memory_usage: 55.0,
+            disk_usage: 40.0,
+            uptime_secs: 3600,
+            active_sessions: 1,
+            ai_status: "ready".to_string(),
+        };
+        let frame = status.encode_ecnp().unwrap();
+
+        let result = engine.sync_process_incoming(&frame).unwrap();
+        match result {
+            SyncMessage::StatusPush { uptime_secs, .. } => {
+                assert_eq!(uptime_secs, 3600);
+            }
+            _ => panic!("Expected StatusPush"),
+        }
+    }
+
+    #[test]
+    fn test_sync_shutdown() {
+        let engine = create_engine(test_config()).unwrap();
+        engine.init_sync(SyncClientConfig::default()).unwrap();
+        engine.sync_shutdown().unwrap();
+        assert!(!engine.sync_is_connected());
     }
 }

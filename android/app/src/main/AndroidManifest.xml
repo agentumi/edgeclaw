@@ -50,5 +50,12 @@
             android:exported="false"
             android:foregroundServiceType="connectedDevice" />
 
+        <!-- Desktop-Mobile sync service -->
+        <service
+            android:name=".service.SyncService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice" />
+
     </application>
 </manifest>

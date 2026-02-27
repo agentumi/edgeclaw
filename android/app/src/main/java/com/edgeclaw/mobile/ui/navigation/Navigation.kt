@@ -11,10 +11,12 @@ import com.edgeclaw.mobile.ui.screens.*
  * Navigation routes
  */
 object Routes {
+    const val ONBOARDING = "onboarding"
     const val DASHBOARD = "dashboard"
     const val CHAT = "chat"
     const val DISCOVERY = "discovery"
     const val DEVICE_DETAIL = "device/{peerId}"
+    const val DEVICE_GROUPS = "device_groups"
     const val SETTINGS = "settings"
     const val SECURITY = "security"
 
@@ -32,6 +34,16 @@ fun EdgeClawNavHost(
         navController = navController,
         startDestination = Routes.DASHBOARD
     ) {
+        composable(Routes.ONBOARDING) {
+            OnboardingScreen(
+                onComplete = {
+                    navController.navigate(Routes.DASHBOARD) {
+                        popUpTo(Routes.ONBOARDING) { inclusive = true }
+                    }
+                }
+            )
+        }
+
         composable(Routes.DASHBOARD) {
             DashboardScreen(
                 onNavigateToDiscovery = { navController.navigate(Routes.DISCOVERY) },
@@ -63,6 +75,12 @@ fun EdgeClawNavHost(
             val peerId = backStackEntry.arguments?.getString("peerId") ?: ""
             DeviceDetailScreen(
                 peerId = peerId,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Routes.DEVICE_GROUPS) {
+            DeviceGroupScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
