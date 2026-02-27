@@ -5,8 +5,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -22,6 +24,7 @@ import com.edgeclaw.mobile.core.model.PeerInfo
 @Composable
 fun DashboardScreen(
     onNavigateToDiscovery: () -> Unit,
+    onNavigateToChat: () -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToSecurity: () -> Unit,
     onNavigateToDevice: (String) -> Unit
@@ -56,11 +59,24 @@ fun DashboardScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = onNavigateToDiscovery,
-                containerColor = MaterialTheme.colorScheme.primary
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Icon(Icons.Default.Search, contentDescription = "Discover Devices")
+                // Discovery FAB (small)
+                SmallFloatingActionButton(
+                    onClick = onNavigateToDiscovery,
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer
+                ) {
+                    Icon(Icons.Default.Search, contentDescription = "Discover Devices")
+                }
+                // Chat FAB (primary, large)
+                ExtendedFloatingActionButton(
+                    onClick = onNavigateToChat,
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    icon = { Icon(Icons.AutoMirrored.Filled.Chat, contentDescription = null) },
+                    text = { Text("Chat") }
+                )
             }
         }
     ) { padding ->

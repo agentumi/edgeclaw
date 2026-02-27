@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="https://github.com/agentumi/edgeclaw_mobile/actions/workflows/ci.yml"><img src="https://github.com/agentumi/edgeclaw_mobile/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
-  <img src="https://img.shields.io/badge/version-0.1.0-blue" alt="Version" />
+  <img src="https://img.shields.io/badge/version-1.0.0-blue" alt="Version" />
   <img src="https://img.shields.io/badge/license-MIT%20%7C%20Apache--2.0-green" alt="License" />
   <img src="https://img.shields.io/badge/rust-1.75%2B-orange?logo=rust" alt="Rust" />
   <img src="https://img.shields.io/badge/kotlin-1.9%2B-purple?logo=kotlin" alt="Kotlin" />

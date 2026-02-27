@@ -12,6 +12,7 @@ import com.edgeclaw.mobile.ui.screens.*
  */
 object Routes {
     const val DASHBOARD = "dashboard"
+    const val CHAT = "chat"
     const val DISCOVERY = "discovery"
     const val DEVICE_DETAIL = "device/{peerId}"
     const val SETTINGS = "settings"
@@ -34,11 +35,18 @@ fun EdgeClawNavHost(
         composable(Routes.DASHBOARD) {
             DashboardScreen(
                 onNavigateToDiscovery = { navController.navigate(Routes.DISCOVERY) },
+                onNavigateToChat = { navController.navigate(Routes.CHAT) },
                 onNavigateToSettings = { navController.navigate(Routes.SETTINGS) },
                 onNavigateToSecurity = { navController.navigate(Routes.SECURITY) },
                 onNavigateToDevice = { peerId ->
                     navController.navigate(Routes.deviceDetail(peerId))
                 }
+            )
+        }
+
+        composable(Routes.CHAT) {
+            ChatScreen(
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 

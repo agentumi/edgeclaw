@@ -7,13 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
-- iOS app support (planned)
-- Push notifications feature
+### Planned
+- iOS app support
+- Push notifications (FCM)
 - Advanced device grouping
 
+---
+
+## [1.0.0] - 2026-02-27
+
+### Added
+- Chat screen with AI-powered command interface
+- Voice input support (Android SpeechRecognizer, Korean primary)
+- Quick action buttons with Korean labels for elderly-friendly UX
+- ChatEngine singleton with local command processing
+- Chat data models (ChatMessageModel, QuickAction, ParsedIntent)
+- Korean/English bilingual command parsing
+- Loading indicators and message state management
+- ExtendedFloatingActionButton for chat entry on Dashboard
+- Chat route in navigation graph
+- 29 Kotlin tests passing, 0 warnings
+
 ### Changed
-- UI improvements based on user feedback
+- Dashboard now features Chat FAB as primary action
+- Discovery button moved to secondary SmallFAB
+- Fixed deprecated icon warnings (AutoMirrored icons)
 
 ---
 
