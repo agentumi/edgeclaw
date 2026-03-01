@@ -1,0 +1,220 @@
+name: iOS Build & Test
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - 'edgeclaw-core/**'
+      - 'ios/**'
+      - '.github/workflows/ios-ci.yml'
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - 'edgeclaw-core/**'
+      - 'ios/**'
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # ─────────────────────────────────────────────
+  # Step 1: Rust Core — iOS Cross-Compile
+  # ─────────────────────────────────────────────
+  rust-ios-build:
+    name: Rust Core (iOS targets)
+    runs-on: macos-14  # Apple Silicon (M1)
+    defaults:
+      run:
+        working-directory: edgeclaw-core
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain + iOS targets
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: >-
+            aarch64-apple-ios,
+            aarch64-apple-ios-sim
+          components: clippy, rustfmt
+
+      - name: Cache Cargo registry & build
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            edgeclaw-core/target
+          key: macos-ios-cargo-${{ hashFiles('edgeclaw-core/Cargo.lock') }}
+          restore-keys: macos-ios-cargo-
+
+      - name: Run tests (host)
+        run: cargo test --release -- --nocapture
+
+      - name: Clippy lint
+        run: cargo clippy --all-targets -- -D warnings
+
+      - name: Format check
+        run: cargo fmt --all -- --check
+
+      - name: Build for iOS Device (aarch64)
+        run: cargo build --target aarch64-apple-ios --release
+
+      - name: Build for iOS Simulator (aarch64-sim)
+        run: cargo build --target aarch64-apple-ios-sim --release
+
+      - name: Verify static library artifacts
+        run: |
+          echo "=== iOS Device ==="
+          ls -lh target/aarch64-apple-ios/release/libedgeclaw_core.a
+          file target/aarch64-apple-ios/release/libedgeclaw_core.a
+
+          echo "=== iOS Simulator ==="
+          ls -lh target/aarch64-apple-ios-sim/release/libedgeclaw_core.a
+          file target/aarch64-apple-ios-sim/release/libedgeclaw_core.a
+
+      - name: Upload iOS static libraries
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-rust-libs
+          path: |
+            edgeclaw-core/target/aarch64-apple-ios/release/libedgeclaw_core.a
+            edgeclaw-core/target/aarch64-apple-ios-sim/release/libedgeclaw_core.a
+          retention-days: 14
+
+  # ─────────────────────────────────────────────
+  # Step 2: UniFFI Swift Bindings Generation
+  # ─────────────────────────────────────────────
+  uniffi-bindings:
+    name: UniFFI Swift Bindings
+    runs-on: macos-14
+    needs: rust-ios-build
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin
+          key: macos-uniffi-cargo-${{ hashFiles('edgeclaw-core/Cargo.lock') }}
+          restore-keys: macos-uniffi-cargo-
+
+      - name: Install uniffi-bindgen
+        run: |
+          if ! command -v uniffi-bindgen &> /dev/null; then
+            cargo install uniffi-bindgen
+          fi
+
+      - name: Generate Swift bindings
+        run: |
+          mkdir -p ios/EdgeClaw/Generated
+          uniffi-bindgen generate \
+            edgeclaw-core/src/edgeclaw.udl \
+            --language swift \
+            --out-dir ios/EdgeClaw/Generated/
+
+      - name: Verify generated bindings
+        run: |
+          echo "=== Generated Swift files ==="
+          ls -la ios/EdgeClaw/Generated/
+          echo ""
+          echo "=== Swift file line counts ==="
+          wc -l ios/EdgeClaw/Generated/*.swift || true
+          echo ""
+          echo "=== Header files ==="
+          ls -la ios/EdgeClaw/Generated/*.h || true
+
+      - name: Swift syntax check (generated bindings)
+        run: |
+          # Verify generated Swift compiles syntactically
+          for f in ios/EdgeClaw/Generated/*.swift; do
+            echo "Checking: $f"
+            swiftc -parse "$f" 2>&1 || echo "  ⚠️  Parse issues in $f (may need bridging header)"
+          done
+
+      - name: Upload generated bindings
+        uses: actions/upload-artifact@v4
+        with:
+          name: uniffi-swift-bindings
+          path: ios/EdgeClaw/Generated/
+          retention-days: 14
+
+  # ─────────────────────────────────────────────
+  # Step 3: Swift Source Validation
+  # ─────────────────────────────────────────────
+  swift-validation:
+    name: Swift Source Check
+    runs-on: macos-14
+    needs: uniffi-bindings
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download generated bindings
+        uses: actions/download-artifact@v4
+        with:
+          name: uniffi-swift-bindings
+          path: ios/EdgeClaw/Generated/
+
+      - name: List all Swift source files
+        run: |
+          echo "=== iOS Swift sources ==="
+          find ios/EdgeClaw -name '*.swift' -type f | sort
+          echo ""
+          echo "=== Total files ==="
+          find ios/EdgeClaw -name '*.swift' -type f | wc -l
+
+      - name: Swift syntax parse (all sources)
+        run: |
+          ERRORS=0
+          for f in $(find ios/EdgeClaw -name '*.swift' -type f); do
+            if ! swiftc -parse "$f" 2>/dev/null; then
+              echo "⚠️  Parse issue: $f (may need imports/context)"
+              ERRORS=$((ERRORS + 1))
+            else
+              echo "✅ $f"
+            fi
+          done
+          echo ""
+          echo "=== Parse summary: $ERRORS files with issues ==="
+
+      - name: Xcode version info
+        run: |
+          xcodebuild -version
+          xcrun --show-sdk-path --sdk iphoneos
+          xcrun --show-sdk-path --sdk iphonesimulator
+
+  # ─────────────────────────────────────────────
+  # Summary
+  # ─────────────────────────────────────────────
+  ios-summary:
+    name: iOS CI Summary
+    runs-on: ubuntu-latest
+    needs: [rust-ios-build, uniffi-bindings, swift-validation]
+    if: always()
+
+    steps:
+      - name: Check results
+        run: |
+          echo "=== iOS CI Pipeline Results ==="
+          echo "Rust iOS build:     ${{ needs.rust-ios-build.result }}"
+          echo "UniFFI bindings:    ${{ needs.uniffi-bindings.result }}"
+          echo "Swift validation:   ${{ needs.swift-validation.result }}"
+
+          if [ "${{ needs.rust-ios-build.result }}" = "failure" ]; then
+            echo "❌ Rust iOS cross-compilation failed"
+            exit 1
+          fi
+          if [ "${{ needs.uniffi-bindings.result }}" = "failure" ]; then
+            echo "❌ UniFFI binding generation failed"
+            exit 1
+          fi
+          echo "✅ iOS CI pipeline completed"

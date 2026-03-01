@@ -7,8 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **iOS SwiftUI app** — 5 screens (Dashboard, Peers, Sessions, Identity, Settings)
+- **UniFFI FFI bridge** — `uniffi_bridge.rs` + `edgeclaw.udl` for Rust→Swift/Kotlin binding
+- **BLEScanner (iOS)** — CoreBluetooth-based peer discovery
+- **TCPClient (iOS)** — NWConnection-based ECNP v1.1 TCP client
+- **AppState (iOS)** — ObservableObject global state with engine integration
+- **9 new Rust tests** — UniFFI bridge tests (FFI roundtrips, error handling)
+- **iOS Quick Start Guide** — `ios/IOS_QUICKSTART.md`
+- **Build scripts** — `build-rust.sh`, `generate-bindings.sh`
+
+### Changed
+- Cargo.toml: added `staticlib` + `cdylib` crate types for iOS/Android FFI
+- Rust test count: 47 → 82 (includes sync + uniffi_bridge tests)
+
 ### Planned
-- iOS app support
 - Push notifications (FCM)
 - Advanced device grouping
 

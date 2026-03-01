@@ -6,7 +6,7 @@ description = "EdgeClaw Mobile Core - Zero-Trust Edge AI Orchestration"
 license = "MIT OR Apache-2.0"
 
 [lib]
-crate-type = ["lib"]
+crate-type = ["lib", "staticlib", "cdylib"]
 name = "edgeclaw_core"
 
 [dependencies]

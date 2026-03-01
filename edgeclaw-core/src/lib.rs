@@ -12,6 +12,7 @@ pub mod policy;
 pub mod protocol;
 pub mod session;
 pub mod sync;
+pub mod uniffi_bridge;
 
 use std::sync::Mutex;
 

@@ -6,9 +6,9 @@
 
 | Aspect | Details |
 |--------|---------|
-| Language | Rust (core) + Kotlin (Android) |
-| Tests | 47 (Rust) + 29 (Kotlin) = 76 total |
-| Minimum | Rust 1.75, Android API 34 |
+| Language | Rust (core) + Kotlin (Android) + Swift (iOS) |
+| Tests | 82 (Rust) + 29 (Kotlin) = 111 total |
+| Minimum | Rust 1.75, Android API 34, iOS 16.0 |
 | Protocol | ECNP v1.1 binary framing |
 | Security | Ed25519 + X25519 + AES-256-GCM |
 
@@ -24,6 +24,9 @@ edgeclaw-core/                 # Rust library
 │   ├── policy.rs             # RBAC engine (10 tests)
 │   ├── peer.rs               # Peer management (6 tests)
 │   ├── ecnp.rs               # Binary codec (8 tests)
+│   ├── sync.rs               # Desktop sync (26 tests)
+│   ├── uniffi_bridge.rs      # UniFFI FFI bridge (9 tests)
+│   ├── edgeclaw.udl          # UniFFI interface
 │   └── error.rs              # Error types (1 test)
 └── Cargo.toml
 
@@ -38,6 +41,18 @@ android/                       # Kotlin app
 │   └── test/                 # Unit tests (29)
 ├── build.gradle.kts
 └── settings.gradle.kts
+
+ios/                           # iOS app (SwiftUI)
+├── EdgeClaw/
+│   ├── EdgeClawApp.swift      # SwiftUI entry point
+│   ├── Core/AppState.swift    # Global state
+│   ├── Views/                 # 5 SwiftUI screens
+│   ├── BLE/BLEScanner.swift   # CoreBluetooth
+│   ├── Network/TCPClient.swift # NWConnection TCP
+│   └── Generated/             # UniFFI bindings
+├── build-rust.sh
+├── generate-bindings.sh
+└── IOS_QUICKSTART.md
 ```
 
 ## Build Commands
@@ -46,7 +61,7 @@ android/                       # Kotlin app
 # Rust core
 cd edgeclaw-core
 cargo build --release        # Build
-cargo test                   # Test (47)
+cargo test                   # Test (82)
 cargo clippy --all-targets -- -D warnings  # Lint
 
 # Kotlin app
@@ -54,6 +69,10 @@ cd ../android
 ./gradlew assembleDebug      # Debug APK
 ./gradlew test               # Test (29)
 ./gradlew lint               # Lint
+
+# iOS (macOS VM)
+cargo build --target x86_64-apple-ios --release
+./ios/generate-bindings.sh   # UniFFI Swift bindings
 ```
 
 ## Architecture

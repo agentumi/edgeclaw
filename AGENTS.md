@@ -8,8 +8,10 @@
 |------|---------|
 | **Rust MSRV** | 1.75+ |
 | **Kotlin** | 1.9+ |
+| **Swift** | 5.9+ |
 | **Android API** | 34+ |
-| **Tests** | 47 Rust + 29 Kotlin |
+| **iOS** | 16.0+ |
+| **Tests** | 82 Rust + 29 Kotlin |
 | **Protocol** | ECNP v1.1 binary |
 | **Security** | Zero-trust: Ed25519 + X25519 + AES-256-GCM |
 
@@ -73,6 +75,9 @@ edgeclaw_mobile/
 │   │   ├── policy.rs         # RBAC (4 roles)
 │   │   ├── peer.rs           # Discovery
 │   │   ├── ecnp.rs           # Binary codec
+│   │   ├── sync.rs           # Desktop sync
+│   │   ├── uniffi_bridge.rs  # UniFFI FFI bridge
+│   │   ├── edgeclaw.udl      # UniFFI interface
 │   │   └── error.rs          # Errors
 │   └── Cargo.toml
 ├── android/
@@ -85,6 +90,17 @@ edgeclaw_mobile/
 │   │   │   └── AndroidManifest.xml
 │   │   └── test/
 │   └── build.gradle.kts
+├── ios/
+│   ├── EdgeClaw/
+│   │   ├── EdgeClawApp.swift # SwiftUI entry
+│   │   ├── Core/             # AppState
+│   │   ├── Views/            # 5 SwiftUI screens
+│   │   ├── BLE/              # CoreBluetooth
+│   │   ├── Network/          # NWConnection TCP
+│   │   └── Generated/        # UniFFI bindings
+│   ├── build-rust.sh
+│   ├── generate-bindings.sh
+│   └── IOS_QUICKSTART.md
 └── README.md
 ```
 
@@ -92,7 +108,7 @@ edgeclaw_mobile/
 
 - [ ] One logical change per PR
 - [ ] Tests added for new functionality
-- [ ] `cargo test` passes (47 tests)
+- [ ] `cargo test` passes (82 tests)
 - [ ] `./gradlew test` passes (29 tests)
 - [ ] `cargo clippy --all-targets -- -D warnings` (zero warnings)
 - [ ] `cargo fmt` run

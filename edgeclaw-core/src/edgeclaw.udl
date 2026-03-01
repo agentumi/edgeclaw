@@ -1,0 +1,169 @@
+// EdgeClaw Core — UniFFI Interface Definition
+// This UDL exposes the Rust core to Swift (iOS) via UniFFI bindgen.
+
+namespace edgeclaw {
+    /// Create a new EdgeClaw engine instance
+    [Throws=EdgeClawError]
+    EdgeClawEngine create_engine(EngineConfig config);
+};
+
+[Error]
+enum EdgeClawError {
+    "CryptoError",
+    "ConnectionError",
+    "PolicyDenied",
+    "InvalidCapability",
+    "SessionExpired",
+    "InvalidParameter",
+    "TimeoutError",
+    "SerializationError",
+    "InternalError",
+};
+
+dictionary EngineConfig {
+    string device_name;
+    string device_type;
+    u16 listen_port;
+    u32 max_connections;
+    boolean quic_enabled;
+    string log_level;
+};
+
+dictionary DeviceIdentity {
+    string device_id;
+    string public_key_hex;
+    string fingerprint;
+    string created_at;
+};
+
+dictionary PeerInfo {
+    string peer_id;
+    string device_name;
+    string device_type;
+    string address;
+    sequence<string> capabilities;
+    string last_seen;
+    boolean is_connected;
+};
+
+dictionary SessionInfo {
+    string session_id;
+    string peer_id;
+    string state;
+    string created_at;
+    string expires_at;
+    u64 messages_sent;
+    u64 messages_received;
+};
+
+dictionary PolicyDecision {
+    boolean allowed;
+    string reason;
+    u8 risk_level;
+};
+
+dictionary EcnpMessage {
+    u8 version;
+    u8 msg_type;
+    sequence<u8> payload;
+};
+
+dictionary SyncClientConfig {
+    string desktop_address;
+    u16 desktop_port;
+    u32 reconnect_interval_secs;
+    u32 heartbeat_interval_secs;
+};
+
+interface EdgeClawEngine {
+    /// Get engine configuration
+    EngineConfig get_config();
+
+    // ─── Identity ───
+
+    /// Generate a new device identity (Ed25519 + X25519 keypair)
+    [Throws=EdgeClawError]
+    DeviceIdentity generate_identity();
+
+    /// Get the current device identity
+    [Throws=EdgeClawError]
+    DeviceIdentity get_identity();
+
+    // ─── Peers ───
+
+    /// Add or update a discovered peer
+    [Throws=EdgeClawError]
+    PeerInfo add_peer(string peer_id, string device_name, string device_type,
+                      string address, sequence<string> capabilities);
+
+    /// List all known peers
+    sequence<PeerInfo> get_peers();
+
+    /// Remove a peer by ID
+    [Throws=EdgeClawError]
+    void remove_peer(string peer_id);
+
+    // ─── Sessions ───
+
+    /// Create an encrypted session with a peer via X25519 ECDH
+    [Throws=EdgeClawError]
+    SessionInfo create_session(string peer_id, sequence<u8> peer_public_key);
+
+    /// Encrypt data using a session key
+    [Throws=EdgeClawError]
+    sequence<u8> encrypt_message(string session_id, sequence<u8> plaintext);
+
+    /// Decrypt data using a session key
+    [Throws=EdgeClawError]
+    sequence<u8> decrypt_message(string session_id, sequence<u8> ciphertext);
+
+    // ─── Protocol ───
+
+    /// Create an ECM (Edge Capability Manifest) announcement
+    [Throws=EdgeClawError]
+    string create_ecm();
+
+    /// Create a heartbeat message
+    [Throws=EdgeClawError]
+    string create_heartbeat(u64 uptime_secs, f64 cpu_usage, f64 memory_usage);
+
+    // ─── Policy ───
+
+    /// Evaluate a capability request
+    [Throws=EdgeClawError]
+    PolicyDecision evaluate_capability(string capability_name, string role);
+
+    // ─── ECNP ───
+
+    /// Encode a message into ECNP v1.1 wire format
+    [Throws=EdgeClawError]
+    sequence<u8> encode_ecnp(u8 msg_type, sequence<u8> payload);
+
+    /// Decode a message from ECNP v1.1 wire format
+    [Throws=EdgeClawError]
+    EcnpMessage decode_ecnp(sequence<u8> data);
+
+    // ─── Sync ───
+
+    /// Initialize the sync client for Desktop-Mobile synchronization
+    [Throws=EdgeClawError]
+    void init_sync(SyncClientConfig config);
+
+    /// Send a remote execution request to the desktop agent
+    [Throws=EdgeClawError]
+    sequence<u8> sync_remote_exec(string command, sequence<string> args);
+
+    /// Process an incoming sync frame from the desktop agent
+    [Throws=EdgeClawError]
+    string sync_process_incoming(sequence<u8> frame);
+
+    /// Check if sync client is connected
+    boolean sync_is_connected();
+
+    /// Shutdown the sync client
+    [Throws=EdgeClawError]
+    void sync_shutdown();
+
+    /// Log an event through the tracing subsystem
+    void log_event(string level, string message);
+};

@@ -15,7 +15,7 @@
   <img src="https://img.shields.io/badge/rust-1.75%2B-orange?logo=rust" alt="Rust" />
   <img src="https://img.shields.io/badge/kotlin-1.9%2B-purple?logo=kotlin" alt="Kotlin" />
   <img src="https://img.shields.io/badge/API-34%2B-brightgreen?logo=android" alt="Android API" />
-  <img src="https://img.shields.io/badge/tests-76%20passed-success" alt="Tests" />
+  <img src="https://img.shields.io/badge/tests-82%20passed-success" alt="Tests" />
 </p>
 
 <p align="center">
@@ -126,6 +126,26 @@ cargo install cargo-ndk
 cargo ndk -t aarch64-linux-android build --release
 ```
 
+### iOS (SwiftUI)
+
+```bash
+# Prerequisites (in macOS VM or native Mac)
+rustup target add x86_64-apple-ios aarch64-apple-ios aarch64-apple-ios-sim
+cargo install uniffi-bindgen
+
+# Build Rust core for iOS Simulator
+cd edgeclaw-core
+cargo build --target x86_64-apple-ios --release
+
+# Generate UniFFI Swift bindings
+cd ../ios
+chmod +x generate-bindings.sh
+./generate-bindings.sh
+
+# Open in Xcode
+# See ios/IOS_QUICKSTART.md for full setup guide
+```
+
 ## 🔐 Security Model
 
 ### RBAC Roles & Risk Levels
@@ -173,7 +193,7 @@ Anti-Replay ──────── Per-device nonce tracking + timestamp ±30s
 
 ```
 edgeclaw_mobile/
-├── edgeclaw-core/                    # Rust core library (47 tests)
+├── edgeclaw-core/                    # Rust core library (82 tests)
 │   ├── src/
 │   │   ├── lib.rs                    # Engine orchestrator (9 tests)
 │   │   ├── identity.rs               # Ed25519/X25519 identity (4 tests)
@@ -182,6 +202,9 @@ edgeclaw_mobile/
 │   │   ├── policy.rs                 # RBAC policy engine (10 tests)
 │   │   ├── peer.rs                   # Peer management (6 tests)
 │   │   ├── ecnp.rs                   # ECNP v1.1 codec (8 tests)
+│   │   ├── sync.rs                   # Desktop sync (26 tests)
+│   │   ├── uniffi_bridge.rs          # UniFFI iOS/Kotlin FFI (9 tests)
+│   │   ├── edgeclaw.udl              # UniFFI interface definition
 │   │   └── error.rs                  # Error types (1 test)
 │   └── Cargo.toml
 │
@@ -205,6 +228,28 @@ edgeclaw_mobile/
 │   ├── build.gradle.kts
 │   └── settings.gradle.kts
 │
+├── ios/                              # iOS application (SwiftUI)
+│   ├── EdgeClaw/
+│   │   ├── EdgeClawApp.swift         # App entry point
+│   │   ├── ContentView.swift         # Tab navigation
+│   │   ├── Info.plist                # App configuration
+│   │   ├── Core/
+│   │   │   └── AppState.swift        # Global state (ObservableObject)
+│   │   ├── Views/
+│   │   │   ├── DashboardView.swift   # Engine status dashboard
+│   │   │   ├── PeersView.swift       # Peer discovery list
+│   │   │   ├── SessionsView.swift    # Encrypted sessions
+│   │   │   ├── IdentityView.swift    # Device identity
+│   │   │   └── SettingsView.swift    # Settings & sync config
+│   │   ├── BLE/
+│   │   │   └── BLEScanner.swift      # CoreBluetooth scanner
+│   │   ├── Network/
+│   │   │   └── TCPClient.swift       # NWConnection TCP client
+│   │   └── Generated/               # UniFFI Swift bindings
+│   ├── build-rust.sh                 # iOS Rust build script
+│   ├── generate-bindings.sh          # UniFFI bindgen script
+│   └── IOS_QUICKSTART.md            # iOS setup guide
+│
 ├── .github/workflows/ci.yml          # CI/CD pipeline
 ├── AGENTS.md                         # AI agent guidelines
 ├── CLAUDE.md                         # Claude AI guidelines
@@ -223,9 +268,9 @@ edgeclaw_mobile/
 
 | Component | Tests | Command |
 |-----------|-------|---------|
-| **Rust Core** | 47 | `cargo test` |
+| **Rust Core** | 82 | `cargo test` |
 | **Android App** | 29 | `./gradlew test` |
-| **Total** | **76** | — |
+| **Total** | **111** | — |
 
 ### Rust Core — Module Tests
 
