@@ -52,6 +52,18 @@
 	<array>
 		<string>bluetooth-central</string>
 		<string>bluetooth-peripheral</string>
+		<string>fetch</string>
+		<string>processing</string>
+		<string>remote-notification</string>
 	</array>
+	<!-- Background task identifiers -->
+	<key>BGTaskSchedulerPermittedIdentifiers</key>
+	<array>
+		<string>com.edgeclaw.mobile.sync</string>
+		<string>com.edgeclaw.mobile.sync.refresh</string>
+	</array>
+	<!-- Face ID usage -->
+	<key>NSFaceIDUsageDescription</key>
+	<string>EdgeClaw uses Face ID to protect access to your secure edge devices and cryptographic keys.</string>
 </dict>
 </plist>

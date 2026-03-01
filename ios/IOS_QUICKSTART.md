@@ -1,7 +1,8 @@
 # iOS Quick Start Guide
 
-> EdgeClaw Mobile — iOS 앱 빌드 및 실행 가이드
+> EdgeClaw Mobile V3.0 — iOS 앱 빌드 및 실행 가이드
 > 대상: macOS VM (VMware) 또는 네이티브 Mac
+> 업데이트: 2026-03-01
 
 ---
 
@@ -12,8 +13,9 @@
 | **macOS** | 14 (Sonoma)+ | VMware 또는 네이티브 Mac |
 | **Xcode** | 15+ | App Store |
 | **Rust** | 1.75+ | `rustup` |
-| **iOS Target** | 16.0+ | Xcode에 포함 |
+| **iOS Target** | 17.0+ | Xcode에 포함 |
 | **UniFFI** | 최신 | `cargo install uniffi-bindgen` |
+| **Fastlane** | 최신 | `brew install fastlane` (선택) |
 
 ---
 
@@ -156,20 +158,26 @@ ios/EdgeClaw/Generated/
 
 ```
 EdgeClaw/
-├── EdgeClawApp.swift       ← 앱 진입점 (기본 생성 파일 교체)
-├── ContentView.swift       ← 탭 네비게이션
+├── EdgeClawApp.swift       ← 앱 진입점 + AppDelegate (APNs + BGTask)
+├── ContentView.swift       ← 6탭 네비게이션
+├── Info.plist              ← 권한 + Background Modes
 ├── Core/
-│   └── AppState.swift      ← 글로벌 상태
+│   ├── AppState.swift      ← 글로벌 상태
+│   ├── Models.swift        ← 데이터 모델 + DataStore (V3.0)
+│   ├── KeyChainManager.swift ← Keychain 래퍼 (V3.0)
+│   └── BiometricAuthGate.swift ← Face ID/Touch ID 게이트 (V3.0)
 ├── Views/
 │   ├── DashboardView.swift
-│   ├── PeersView.swift
+│   ├── ChatView.swift      ← 에이전트 채팅 UI (V3.0)
+│   ├── PeersView.swift     ← 피어 + 그룹 관리 CRUD
 │   ├── SessionsView.swift
 │   ├── IdentityView.swift
-│   └── SettingsView.swift
+│   └── SettingsView.swift  ← 생체인증 토글 포함
 ├── BLE/
 │   └── BLEScanner.swift    ← CoreBluetooth
 ├── Network/
-│   └── TCPClient.swift     ← NWConnection TCP
+│   ├── TCPClient.swift     ← NWConnection TCP
+│   └── SyncService.swift   ← 백그라운드 동기화 (V3.0)
 └── Generated/
     ├── edgeclawFFI.h
     ├── edgeclawFFI.modulemap
@@ -186,7 +194,7 @@ EdgeClaw/
 | **Library Search Paths** | `$(PROJECT_DIR)/../edgeclaw-core/target/$(CURRENT_ARCH)-apple-ios/release` |
 | **Header Search Paths** | `$(PROJECT_DIR)/EdgeClaw/Generated` |
 | **Swift Version** | 5.9 |
-| **iOS Deployment Target** | 16.0 |
+   - **iOS Deployment Target** | 17.0 |
 
 ### 5-4. Build Phases 설정
 
@@ -200,10 +208,16 @@ EdgeClaw/
    - `CoreBluetooth.framework`
    - `Network.framework`
    - `Security.framework`
+   - `LocalAuthentication.framework` (Face ID/Touch ID)
 
 ### 5-5. Capabilities
 
-- **Background Modes**: Uses Bluetooth LE accessories (Central + Peripheral)
+- **Background Modes**: 
+  - Uses Bluetooth LE accessories (Central + Peripheral)
+  - Background fetch
+  - Background processing
+  - Remote notifications
+- **Push Notifications**: APNs 설정
 
 ---
 
@@ -246,31 +260,172 @@ edgeclaw_mobile/
 │   └── app/...
 ├── ios/                            # iOS (Swift)
 │   ├── EdgeClaw/
-│   │   ├── EdgeClawApp.swift
-│   │   ├── ContentView.swift
-│   │   ├── Info.plist
+│   │   ├── EdgeClawApp.swift      # 앱 진입점 + AppDelegate
+│   │   ├── ContentView.swift      # 6탭 네비게이션
+│   │   ├── Info.plist             # 권한 + Background Modes
 │   │   ├── Core/
-│   │   │   └── AppState.swift
+│   │   │   ├── AppState.swift     # 글로벌 상태
+│   │   │   ├── Models.swift       # 데이터 모델 + DataStore
+│   │   │   ├── KeyChainManager.swift # Keychain 래퍼
+│   │   │   └── BiometricAuthGate.swift # Face ID 게이트
 │   │   ├── Views/
 │   │   │   ├── DashboardView.swift
-│   │   │   ├── PeersView.swift
+│   │   │   ├── ChatView.swift     # 에이전트 채팅
+│   │   │   ├── PeersView.swift    # 피어 + 그룹 관리
 │   │   │   ├── SessionsView.swift
 │   │   │   ├── IdentityView.swift
-│   │   │   └── SettingsView.swift
+│   │   │   └── SettingsView.swift # 생체인증 설정
 │   │   ├── BLE/
-│   │   │   └── BLEScanner.swift
+│   │   │   └── BLEScanner.swift   # CoreBluetooth
 │   │   ├── Network/
-│   │   │   └── TCPClient.swift
+│   │   │   ├── TCPClient.swift    # NWConnection TCP
+│   │   │   └── SyncService.swift  # 백그라운드 동기화
 │   │   └── Generated/             # UniFFI 자동 생성
+│   ├── EdgeClawTests/
+│   │   └── EdgeClawTests.swift    # 35개 단위 테스트
+│   ├── fastlane/
+│   │   ├── Fastfile               # TestFlight/App Store 배포
+│   │   └── Appfile                # 앱 식별자 설정
 │   ├── build-rust.sh
 │   ├── generate-bindings.sh
-│   └── XCODE_PROJECT_SETUP.md
+│   └── IOS_QUICKSTART.md          # 이 문서
 └── README.md
 ```
 
 ---
 
-## 8. 문제 해결
+## 7.1. V3.0 신규 기능
+
+### 생체 인증 (Face ID / Touch ID)
+
+앱 시작 시 생체 인증 요구 (선택):
+
+1. **Settings** 탭 → **생체 인증** 토글 ON
+2. `BiometricAuthGate`가 앱 실행 시 자동으로 Face ID/Touch ID 요구
+3. 실패 시 패스코드 폴백 지원
+
+**Info.plist** 필수 키:
+```xml
+<key>NSFaceIDUsageDescription</key>
+<string>EdgeClaw uses Face ID to protect your device identity and sessions.</string>
+```
+
+### 에이전트 채팅 (ChatView)
+
+6번째 탭에서 데스크탑 에이전트와 실시간 명령 수행:
+
+- **에이전트 선택**: default / system / security / devops
+- **퀵 액션**: Status, Peers, System Info, Health Check 등 8가지
+- **코드 블록**: 실행 결과를 monospace 폰트로 표시 + 복사 지원
+
+### 백그라운드 동기화 (SyncService)
+
+데스크탑 에이전트와 7가지 항목 자동 동기화:
+
+| 동기화 항목 | 설명 |
+|-------------|------|
+| `config` | 설정 동기화 |
+| `identity` | 디바이스 ID 동기화 |
+| `peerList` | 피어 목록 |
+| `sessionState` | 세션 상태 |
+| `policyUpdate` | RBAC 정책 |
+| `activityLog` | 팀 활동 로그 |
+| `statusPush` | 상태 푸시 |
+
+**BGTaskScheduler** 등록 (iOS 13+):
+```swift
+BGTaskScheduler.shared.register(
+    forTaskWithIdentifier: "com.edgeclaw.mobile.sync",
+    using: nil
+) { task in ... }
+```
+
+### KeyChain 보안 저장
+
+`KeyChainManager`로 Ed25519/X25519 키 자료를 iOS Keychain에 안전하게 저장:
+
+```swift
+// 키 저장
+try KeyChainManager.storeEd25519PrivateKey(keyData)
+
+// 키 로드
+let key = try KeyChainManager.loadEd25519PrivateKey()
+```
+
+접근 제어: `kSecAttrAccessibleWhenUnlockedThisDeviceOnly` (디바이스 잠금 시 접근 불가)
+
+### 피어 그룹 관리
+
+PeersView에서 피어를 그룹으로 관리:
+
+1. **그룹 생성**: 이름, 아이콘, 색상 지정
+2. **피어 할당**: Context Menu → "Add to Group"
+3. **그룹 필터**: 상단 가로 스크롤 바에서 그룹별 필터링
+4. **CRUD**: 생성/수정/삭제/정렬 (GroupManagementView)
+
+### APNs 푸시 알림
+
+`AppDelegate`에서 Apple Push Notification 자동 등록:
+
+```swift
+// 디바이스 토큰 → UserDefaults 저장
+UserDefaults.standard.set(tokenString, forKey: "edgeclaw.apnsToken")
+```
+
+### Fastlane 배포
+
+```bash
+# 테스트
+fastlane test
+
+# TestFlight 배포
+fastlane beta
+
+# App Store 배포
+fastlane release
+```
+
+---
+
+## 8. BLE 연결 가이드
+
+### 8-1. EdgeClaw BLE 서비스
+
+| 항목 | 값 |
+|------|-----|
+| **Service UUID** | `EC1A0001-EDGE-CLAW-BLE0-SERVICE00001` |
+| **프로토콜** | ECNP v1.1 binary framing |
+| **인증** | Ed25519 + X25519 ECDH |
+| **암호화** | AES-256-GCM |
+
+### 8-2. BLE 스캔 시작
+
+1. **Peers** 탭 → 우상단 안테나 아이콘 탭
+2. `BLEScanner`가 CoreBluetooth 스캔 시작
+3. EdgeClaw 서비스 UUID를 광고하는 디바이스 자동 필터링
+4. 발견된 피어가 목록에 추가 (RSSI + 디바이스 타입 표시)
+
+### 8-3. 연결 흐름
+
+```
+[iOS App]  ─── BLE Scan ──→  [Desktop Agent]
+    │                              │
+    ├── ECDH Key Exchange ────────→├
+    │                              │
+    ├── Ed25519 Auth (mutual) ────→├
+    │                              │
+    └── AES-256-GCM Session ──────→└── ECNP v1.1 frames
+```
+
+### 8-4. 제한 사항
+
+- VMware에서 BLE 동작 불가 → 실기기 또는 네이티브 Mac 필요
+- iOS Simulator는 CoreBluetooth 미지원
+- TCP 연결은 Simulator에서도 동작 (TCPClient)
+
+---
+
+## 9. 문제 해결
 
 ### Rust 빌드 오류
 
@@ -338,6 +493,7 @@ Windows (VS Code)           macOS VM (Xcode)
 ---
 
 관련 문서:
-- [XCODE_PROJECT_SETUP.md](XCODE_PROJECT_SETUP.md) — Xcode 프로젝트 설정 상세
 - [edgeclaw.udl](../edgeclaw-core/src/edgeclaw.udl) — UniFFI 인터페이스 정의
 - [README.md](../README.md) — 프로젝트 개요
+- [AGENTS.md](../AGENTS.md) — AI 에이전트 개발 가이드
+- [CHANGELOG.md](../CHANGELOG.md) — 변경 이력

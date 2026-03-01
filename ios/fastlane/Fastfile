@@ -1,0 +1,173 @@
+# Fastlane configuration for EdgeClaw Mobile iOS
+# See: https://docs.fastlane.tools
+
+default_platform(:ios)
+
+platform :ios do
+  # ─────────────────────────────────────────────
+  # Build & Test
+  # ─────────────────────────────────────────────
+
+  desc "Run unit tests"
+  lane :test do
+    run_tests(
+      project: "EdgeClaw.xcodeproj",
+      scheme: "EdgeClaw",
+      device: "iPhone 15 Pro",
+      clean: true,
+      code_coverage: true,
+      output_types: "junit,html",
+      output_directory: "build/reports"
+    )
+  end
+
+  desc "Build debug IPA"
+  lane :build_debug do
+    build_app(
+      project: "EdgeClaw.xcodeproj",
+      scheme: "EdgeClaw",
+      configuration: "Debug",
+      export_method: "development",
+      output_directory: "build/",
+      output_name: "EdgeClaw-Debug.ipa",
+      skip_codesigning: true
+    )
+  end
+
+  desc "Build release IPA"
+  lane :build_release do
+    build_app(
+      project: "EdgeClaw.xcodeproj",
+      scheme: "EdgeClaw",
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "build/",
+      output_name: "EdgeClaw.ipa"
+    )
+  end
+
+  # ─────────────────────────────────────────────
+  # TestFlight Deployment
+  # ─────────────────────────────────────────────
+
+  desc "Deploy to TestFlight"
+  lane :beta do
+    ensure_git_status_clean
+
+    # Increment build number
+    increment_build_number(
+      build_number: Time.now.to_i.to_s
+    )
+
+    # Build
+    build_app(
+      project: "EdgeClaw.xcodeproj",
+      scheme: "EdgeClaw",
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "build/",
+      output_name: "EdgeClaw.ipa"
+    )
+
+    # Upload to TestFlight
+    upload_to_testflight(
+      skip_waiting_for_build_processing: true,
+      distribute_external: false,
+      changelog: changelog_from_git_commits(
+        commits_count: 10,
+        merge_commit_filtering: "exclude_merges"
+      )
+    )
+
+    # Tag the release
+    add_git_tag(
+      tag: "ios/v#{get_version_number}-b#{get_build_number}"
+    )
+
+    # Notify
+    notification(
+      subtitle: "EdgeClaw iOS",
+      message: "Successfully deployed to TestFlight! 🎉"
+    )
+  end
+
+  # ─────────────────────────────────────────────
+  # App Store Release
+  # ─────────────────────────────────────────────
+
+  desc "Deploy to App Store"
+  lane :release do
+    ensure_git_status_clean
+
+    build_app(
+      project: "EdgeClaw.xcodeproj",
+      scheme: "EdgeClaw",
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "build/",
+      output_name: "EdgeClaw.ipa"
+    )
+
+    upload_to_app_store(
+      skip_metadata: false,
+      skip_screenshots: true,
+      submit_for_review: false,
+      automatic_release: false
+    )
+  end
+
+  # ─────────────────────────────────────────────
+  # Certificates & Provisioning
+  # ─────────────────────────────────────────────
+
+  desc "Sync certificates and provisioning profiles"
+  lane :sync_certs do
+    match(
+      type: "development",
+      readonly: true
+    )
+    match(
+      type: "appstore",
+      readonly: true
+    )
+  end
+
+  # ─────────────────────────────────────────────
+  # Size Check
+  # ─────────────────────────────────────────────
+
+  desc "Check IPA size"
+  lane :check_size do
+    build_app(
+      project: "EdgeClaw.xcodeproj",
+      scheme: "EdgeClaw",
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "build/",
+      output_name: "EdgeClaw-Size-Check.ipa",
+      skip_codesigning: true
+    )
+
+    ipa_path = "build/EdgeClaw-Size-Check.ipa"
+    if File.exist?(ipa_path)
+      size_mb = File.size(ipa_path) / (1024.0 * 1024.0)
+      UI.message("📱 IPA size: #{size_mb.round(2)} MB")
+      if size_mb > 30
+        UI.user_error!("❌ IPA exceeds 30MB limit: #{size_mb.round(2)} MB")
+      else
+        UI.success("✅ IPA within 30MB limit: #{size_mb.round(2)} MB")
+      end
+    end
+  end
+
+  # ─────────────────────────────────────────────
+  # Error handling
+  # ─────────────────────────────────────────────
+
+  error do |lane, exception|
+    notification(
+      subtitle: "EdgeClaw iOS — Error",
+      message: "#{lane}: #{exception.message}"
+    )
+  end
+end

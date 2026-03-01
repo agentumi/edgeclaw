@@ -17,6 +17,11 @@ struct ContentView: View {
                     Label("Dashboard", systemImage: "gauge.medium")
                 }
 
+            ChatView()
+                .tabItem {
+                    Label("Chat", systemImage: "bubble.left.and.bubble.right")
+                }
+
             PeersView()
                 .tabItem {
                     Label("Peers", systemImage: "antenna.radiowaves.left.and.right")

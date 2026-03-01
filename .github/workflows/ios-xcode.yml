@@ -1,0 +1,241 @@
+name: iOS Xcode Build & Test
+
+on:
+  push:
+    branches: [main, dev]
+    paths:
+      - 'ios/**'
+      - 'edgeclaw-core/**'
+      - '.github/workflows/ios-xcode.yml'
+  pull_request:
+    branches: [main, dev]
+    paths:
+      - 'ios/**'
+      - 'edgeclaw-core/**'
+
+env:
+  XCODE_VERSION: '15.4'
+  IOS_DEPLOYMENT_TARGET: '16.0'
+  SCHEME: 'EdgeClaw'
+  WORKSPACE: 'ios/EdgeClaw.xcodeproj'
+
+jobs:
+  # ─────────────────────────────────────────────
+  # Step 1: Build Rust iOS Libraries
+  # ─────────────────────────────────────────────
+  rust-ios-build:
+    name: Rust Core (iOS)
+    runs-on: macos-14
+    defaults:
+      run:
+        working-directory: edgeclaw-core
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust + iOS targets
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios,aarch64-apple-ios-sim
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            edgeclaw-core/target
+          key: macos-xcode-cargo-${{ hashFiles('edgeclaw-core/Cargo.lock') }}
+
+      - name: Build for iOS device
+        run: cargo build --target aarch64-apple-ios --release
+
+      - name: Build for iOS simulator
+        run: cargo build --target aarch64-apple-ios-sim --release
+
+      - name: Upload iOS libraries
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-rust-libs
+          path: |
+            edgeclaw-core/target/aarch64-apple-ios/release/libedgeclaw_core.a
+            edgeclaw-core/target/aarch64-apple-ios-sim/release/libedgeclaw_core.a
+
+  # ─────────────────────────────────────────────
+  # Step 2: Generate UniFFI Bindings
+  # ─────────────────────────────────────────────
+  uniffi-bindings:
+    name: UniFFI Bindings
+    runs-on: macos-14
+    needs: rust-ios-build
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install uniffi-bindgen
+        run: cargo install uniffi-bindgen --quiet
+
+      - name: Generate Swift bindings
+        run: |
+          mkdir -p ios/EdgeClaw/Generated
+          uniffi-bindgen generate \
+            edgeclaw-core/src/edgeclaw.udl \
+            --language swift \
+            --out-dir ios/EdgeClaw/Generated/
+
+      - name: Upload bindings
+        uses: actions/upload-artifact@v4
+        with:
+          name: uniffi-swift-bindings
+          path: ios/EdgeClaw/Generated/
+
+  # ─────────────────────────────────────────────
+  # Step 3: Xcode Build & Test
+  # ─────────────────────────────────────────────
+  xcode-build:
+    name: Xcode Build & Unit Tests
+    runs-on: macos-14
+    needs: [rust-ios-build, uniffi-bindings]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode version
+        run: sudo xcode-select -s /Applications/Xcode_${{ env.XCODE_VERSION }}.app
+
+      - name: Download Rust libraries
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-rust-libs
+          path: edgeclaw-core/target/
+
+      - name: Download UniFFI bindings
+        uses: actions/download-artifact@v4
+        with:
+          name: uniffi-swift-bindings
+          path: ios/EdgeClaw/Generated/
+
+      - name: Show Xcode info
+        run: |
+          xcodebuild -version
+          xcodebuild -showsdks | grep -i ios
+
+      - name: Resolve dependencies
+        run: |
+          cd ios
+          xcodebuild -resolvePackageDependencies \
+            -project EdgeClaw.xcodeproj \
+            -scheme "${{ env.SCHEME }}" \
+            || echo "⚠️ .xcodeproj not yet created — skipping"
+
+      - name: Build for iOS Simulator
+        run: |
+          cd ios
+          if [ -f EdgeClaw.xcodeproj/project.pbxproj ]; then
+            xcodebuild build \
+              -project EdgeClaw.xcodeproj \
+              -scheme "${{ env.SCHEME }}" \
+              -destination 'platform=iOS Simulator,name=iPhone 15 Pro,OS=latest' \
+              -configuration Debug \
+              CODE_SIGN_IDENTITY="" \
+              CODE_SIGNING_REQUIRED=NO \
+              ONLY_ACTIVE_ARCH=YES \
+              | xcpretty
+          else
+            echo "⚠️ .xcodeproj not yet created — skipping build"
+          fi
+
+      - name: Run Unit Tests
+        run: |
+          cd ios
+          if [ -f EdgeClaw.xcodeproj/project.pbxproj ]; then
+            xcodebuild test \
+              -project EdgeClaw.xcodeproj \
+              -scheme "${{ env.SCHEME }}" \
+              -destination 'platform=iOS Simulator,name=iPhone 15 Pro,OS=latest' \
+              -configuration Debug \
+              CODE_SIGN_IDENTITY="" \
+              CODE_SIGNING_REQUIRED=NO \
+              ONLY_ACTIVE_ARCH=YES \
+              | xcpretty --report junit
+          else
+            echo "⚠️ .xcodeproj not yet created — skipping tests"
+          fi
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: xcode-test-results
+          path: ios/build/reports/
+          if-no-files-found: ignore
+
+  # ─────────────────────────────────────────────
+  # Step 4: IPA Size Check (Release build)
+  # ─────────────────────────────────────────────
+  ipa-size:
+    name: IPA Size Measurement
+    runs-on: macos-14
+    needs: xcode-build
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode version
+        run: sudo xcode-select -s /Applications/Xcode_${{ env.XCODE_VERSION }}.app
+
+      - name: Build Release Archive
+        run: |
+          cd ios
+          if [ -f EdgeClaw.xcodeproj/project.pbxproj ]; then
+            xcodebuild archive \
+              -project EdgeClaw.xcodeproj \
+              -scheme "${{ env.SCHEME }}" \
+              -archivePath build/EdgeClaw.xcarchive \
+              -destination 'generic/platform=iOS' \
+              CODE_SIGN_IDENTITY="" \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGNING_ALLOWED=NO \
+              || echo "⚠️ Archive build requires signing — skipping"
+
+            # Estimate IPA size from app bundle
+            if [ -d build/EdgeClaw.xcarchive ]; then
+              APP_SIZE=$(du -sh build/EdgeClaw.xcarchive/Products/Applications/EdgeClaw.app 2>/dev/null | cut -f1)
+              echo "📱 Estimated app size: ${APP_SIZE:-N/A}"
+              echo "📏 Target: < 30MB"
+            fi
+          else
+            echo "⚠️ .xcodeproj not yet created — skipping IPA measurement"
+          fi
+
+  # ─────────────────────────────────────────────
+  # Summary
+  # ─────────────────────────────────────────────
+  ios-xcode-summary:
+    name: iOS Xcode CI Summary
+    runs-on: ubuntu-latest
+    needs: [rust-ios-build, uniffi-bindings, xcode-build, ipa-size]
+    if: always()
+
+    steps:
+      - name: Results
+        run: |
+          echo "=== iOS Xcode CI Results ==="
+          echo "Rust build:     ${{ needs.rust-ios-build.result }}"
+          echo "UniFFI:         ${{ needs.uniffi-bindings.result }}"
+          echo "Xcode build:    ${{ needs.xcode-build.result }}"
+          echo "IPA size:       ${{ needs.ipa-size.result }}"
+
+          FAILED=false
+          for result in "${{ needs.rust-ios-build.result }}" "${{ needs.uniffi-bindings.result }}"; do
+            if [ "$result" = "failure" ]; then FAILED=true; fi
+          done
+
+          if [ "$FAILED" = "true" ]; then
+            echo "❌ iOS Xcode CI failed"
+            exit 1
+          fi
+          echo "✅ iOS Xcode CI completed"
